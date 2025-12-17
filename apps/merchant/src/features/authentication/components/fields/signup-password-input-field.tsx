@@ -1,0 +1,78 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  loginFormSchema,
+  signUpFormSchema,
+} from "~/src/features/authentication/data/form-schemas";
+import type { Control, FieldPath } from "react-hook-form";
+import { z } from "zod";
+import {
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@repo/ui/components/ui/form";
+import { Input } from "@repo/ui/components/ui/input";
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+
+export interface PasswordInputFieldProps {
+  name: FieldPath<z.infer<typeof signUpFormSchema>>;
+  label?: string;
+  placeholder: string;
+  description?: string;
+  disabled?: boolean;
+  formControl: Control<z.infer<typeof signUpFormSchema>>;
+}
+
+export const SignUpPasswordInputField: React.FC<PasswordInputFieldProps> = ({
+  name,
+  label,
+  placeholder,
+  description,
+  disabled = false,
+  formControl,
+}) => {
+  const [passwordVisibility, setPasswordVisibility] = useState<boolean>(false);
+
+  const handlePasswordVisibility = () => {
+    setPasswordVisibility(!passwordVisibility);
+  };
+
+  return (
+    <FormField
+      control={formControl}
+      disabled={disabled}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          {label && <FormLabel>{label}</FormLabel>}
+          <FormControl>
+            <div className="relative flex items-center rounded-md border border-border bg-background text-foreground">
+              <Input
+                type={passwordVisibility ? "text" : "password"}
+                placeholder={placeholder}
+                {...field}
+                className="bg-transparent px-4 py-3 text-sm shadow-none"
+              />
+              <button
+                type="button"
+                onClick={handlePasswordVisibility}
+                className="absolute right-2"
+              >
+                {passwordVisibility ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </FormControl>
+          {description && <FormDescription>{description}</FormDescription>}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};

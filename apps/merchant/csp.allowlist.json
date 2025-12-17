@@ -1,0 +1,46 @@
+{
+  "connect": [
+    "https://hydrapay-dev.firebaseapp.com",
+    "https://firebaseapp.com",
+    "https://identitytoolkit.googleapis.com",
+    "https://securetoken.googleapis.com",
+    "https://firebaseremoteconfig.googleapis.com",
+    "https://firebaseinstallations.googleapis.com",
+    "https://firebase.googleapis.com",
+    "https://firestore.googleapis.com",
+    "https://*.googleapis.com",
+    "https://api.livecoinwatch.com",
+    "https://cardano-mainnet.blockfrost.io",
+    "https://cardano-preprod.blockfrost.io",
+    "https://*.sanity.io",
+    "https://api.sendgrid.net",
+    "https://www.google.com",
+    "https://api.iconify.design",
+    "https://api.unisvg.com",
+    "https://api.simplesvg.com",
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://blazar.local:*",
+    "ws://localhost:*",
+    "wss://blazar.local:*"
+  ],
+  "img": [
+    "https://firebasestorage.googleapis.com",
+    "https://maps.googleapis.com",
+    "https://maps.gstatic.com",
+    "https://*.googleapis.com",
+    "https://lh3.googleusercontent.com",
+    "https://*.googleusercontent.com",
+    "data:",
+    "blob:"
+  ],
+  "script": [
+    "https://maps.googleapis.com",
+    "https://www.google.com",
+    "https://www.gstatic.com",
+    "https://apis.google.com"
+  ],
+  "style": ["https://fonts.googleapis.com", "'unsafe-inline'"],
+  "font": ["https://fonts.gstatic.com", "data:"],
+  "frame": ["https://www.google.com"]
+}
