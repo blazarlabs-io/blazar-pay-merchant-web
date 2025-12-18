@@ -2,6 +2,8 @@
   "connect": [
     "https://hydrapay-dev.firebaseapp.com",
     "https://firebaseapp.com",
+    "https://*.firebaseapp.com",
+    "https://*.web.app",
     "https://identitytoolkit.googleapis.com",
     "https://securetoken.googleapis.com",
     "https://firebaseremoteconfig.googleapis.com",
@@ -42,5 +44,8 @@
   ],
   "style": ["https://fonts.googleapis.com", "'unsafe-inline'"],
   "font": ["https://fonts.gstatic.com", "data:"],
-  "frame": ["https://www.google.com"]
+  "frame": [
+    "https://www.google.com", 
+    "https://tracecork-app-production.firebaseapp.com"
+    ]
 }
