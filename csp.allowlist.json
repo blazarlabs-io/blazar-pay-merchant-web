@@ -36,6 +36,7 @@
     "blob:"
   ],
   "script": [
+    "self",
     "wasm-unsafe-eval",
     "sha256-YXuzbY0IAah5ncUXeyw+avVY43cpRrhE5pgdIC1Cfrk=",
     "sha256-7ZRMnh3+KlZx7THNtiWwrMT9BAkq72asxeWPGm79aKA=",
@@ -44,6 +45,7 @@
     "sha256-JWinnvoTs3rwYROR//W4SX1QBZzt3eCtOCo5szxoOSI=",
     "sha256-kDNQb008n0j2msIRIpFu0oEDur3FW8MPJxOjl0ll95g=",
     "sha256-dlCUqzHwp/ax2393CSFgOGvzyl/nbHk1zP+MMDMj/3s=",
+    "https://vercel.live",
     "https://maps.googleapis.com",
     "https://www.google.com",
     "https://www.gstatic.com",
