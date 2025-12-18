@@ -1,7 +1,6 @@
 {
   "connect": [
     "https://hydrapay-dev.firebaseapp.com",
-    "https://firebaseapp.com",
     "https://*.firebaseapp.com",
     "https://*.web.app",
     "https://identitytoolkit.googleapis.com",
@@ -37,6 +36,7 @@
     "blob:"
   ],
   "script": [
+    "wasm-unsafe-eval",
     "https://maps.googleapis.com",
     "https://www.google.com",
     "https://www.gstatic.com",
