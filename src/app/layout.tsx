@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Providers } from "../context/providers";
 import "@repo/ui/globals.css";
 import { NextIntlClientProvider } from "next-intl";
@@ -43,9 +44,14 @@ export default async function RootLayout({
   // side is the easiest way to get started
   const messages = await getMessages();
 
+  // Nonce from middleware (available if you need to use next/script with inline code).
+  // If you don't use next/script right now, this still helps ensure dynamic rendering.
+  const h = await headers();
+  const nonce = h.get("x-nonce") ?? undefined;
+
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body suppressHydrationWarning>
+      <body suppressHydrationWarning data-csp-nonce={nonce}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
