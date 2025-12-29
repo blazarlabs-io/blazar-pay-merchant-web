@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "../context/theme-provider";
 import { Toaster } from "@repo/ui/components/ui/sonner";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "Hydrapay by Blazar Labs",
@@ -49,10 +50,17 @@ export default async function RootLayout({
   const h = await headers();
   const nonce = h.get("x-nonce") ?? undefined;
 
+  <Script
+    src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit"
+    strategy="afterInteractive"
+    nonce={nonce}
+  />
+
   return (
     <html lang={locale} suppressHydrationWarning>
       <body suppressHydrationWarning data-csp-nonce={nonce}>
         <ThemeProvider
+          nonce={nonce}
           attribute="class"
           defaultTheme="system"
           enableSystem
