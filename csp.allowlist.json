@@ -48,6 +48,7 @@
   "font": ["https://fonts.gstatic.com", "data:"],
   "frame": [
     "https://www.google.com", 
-    "https://tracecork-app-production.firebaseapp.com"
-    ]
+    "https://hydrapay-dev.firebaseapp.com",
+    "https://vercel.live"
+  ]
 }
