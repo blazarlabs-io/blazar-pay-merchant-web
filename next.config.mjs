@@ -4,7 +4,7 @@ const withNextIntl = createNextIntlPlugin();
 const isProd = process.env.NODE_ENV === "production";
 
 const securityHeaders = [
-  // NOTE: CSP is now set in middleware.ts (nonce per request). Do NOT set CSP here.
+  // CSP is set in middleware.ts (nonce per request)
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

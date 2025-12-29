@@ -20,14 +20,11 @@ function makeNonce() {
 }
 
 /**
- * Build CSP string. You can keep your existing allowlist domains here.
- * Key part: script-src includes 'nonce-${nonce}'.
+ * script-src includes 'nonce-${nonce}'.
  */
 function buildCsp(nonce: string) {
   const isProd = process.env.NODE_ENV === "production";
 
-  // In dev, Next dev tooling can need more permissive rules.
-  // In prod, keep it strict.
   const scriptSrc = isProd
     ? [
         "'self'",
@@ -51,7 +48,7 @@ function buildCsp(nonce: string) {
         "https://apis.google.com",
       ];
 
-  // Keep these aligned with what you already had in your response headers.
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
