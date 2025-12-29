@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { checkIdToken } from "@/features/authentication/services";
 import { AUTH_COOKIE } from "@/features/authentication/data";
 import { CheckIdTokenResp } from "./features/authentication/types";
+import cspAllowlist from "../csp.allowlist.json";
 
 /**
  * Edge-safe base64 nonce generator (middleware runs on the Edge runtime).
@@ -23,46 +24,29 @@ function makeNonce() {
  * script-src includes 'nonce-${nonce}'.
  */
 function buildCsp(nonce: string) {
-  const isProd = process.env.NODE_ENV === "production";
+  const c = cspAllowlist;
 
-  const scriptSrc = isProd
-    ? [
-        "'self'",
-        `'nonce-${nonce}'`,
-        "'wasm-unsafe-eval'",
-        "https://vercel.live",
-        "https://maps.googleapis.com",
-        "https://www.google.com",
-        "https://www.gstatic.com",
-        "https://apis.google.com",
-      ]
-    : [
-        "'self'",
-        `'nonce-${nonce}'`,
-        "'unsafe-eval'",
-        "'wasm-unsafe-eval'",
-        "https://vercel.live",
-        "https://maps.googleapis.com",
-        "https://www.google.com",
-        "https://www.gstatic.com",
-        "https://apis.google.com",
-      ];
+  const scriptSrc = [
+    ...c.script,              // your allowlist
+    `'nonce-${nonce}'`,       // inject nonce
+  ];
 
-
-  return [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "frame-ancestors 'none'",
-    "form-action 'self'",
-    `connect-src 'self' https://hydrapay-dev.firebaseapp.com https://*.firebaseapp.com https://*.web.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseremoteconfig.googleapis.com https://firebaseinstallations.googleapis.com https://firebase.googleapis.com https://firestore.googleapis.com https://*.googleapis.com https://api.livecoinwatch.com https://cardano-mainnet.blockfrost.io https://cardano-preprod.blockfrost.io https://*.sanity.io https://api.sendgrid.net https://www.google.com https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com http://localhost:* http://127.0.0.1:* https://blazar.local:* ws://localhost:* wss://blazar.local:*`,
-    "img-src 'self' data: blob: https://firebasestorage.googleapis.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
+  const directives = [
+    `default-src 'self'`,
+    `base-uri 'self'`,
+    `frame-ancestors 'none'`,
+    `form-action 'self'`,
+    `object-src 'none'`,
+    `upgrade-insecure-requests`,
+    `connect-src 'self' ${c.connect.join(" ")}`,
+    `img-src 'self' ${c.img.join(" ")}`,
     `script-src ${scriptSrc.join(" ")}`,
-    "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
-    "font-src 'self' data: https://fonts.gstatic.com",
-    "frame-src 'self' https://www.google.com https://tracecork-app-production.firebaseapp.com",
-    "object-src 'none'",
-    "upgrade-insecure-requests",
-  ].join("; ");
+    `style-src 'self' ${c.style.join(" ")}`,
+    `font-src 'self' ${c.font.join(" ")}`,
+    `frame-src 'self' ${c.frame.join(" ")}`,
+  ];
+
+  return directives.join("; ");
 }
 
 const authProtectedRoutes = [
