@@ -23,7 +23,9 @@
     "http://127.0.0.1:*",
     "https://blazar.local:*",
     "ws://localhost:*",
-    "wss://blazar.local:*"
+    "wss://blazar.local:*",
+    "https://7cc7c9dd1ce6.ngrok-free.app",
+    "wss://7cc7c9dd1ce6.ngrok-free.app"
   ],
   "img": [
     "https://firebasestorage.googleapis.com",
