@@ -27,7 +27,9 @@
     "https://7cc7c9dd1ce6.ngrok-free.app",
     "wss://7cc7c9dd1ce6.ngrok-free.app",
     "http://192.168.0.102:3000",
-    "wss://192.168.0.102:3000"
+    "wss://192.168.0.102:3000",
+    "https://jenine-precurrent-russ.ngrok-free.dev",
+    "wss://jenine-precurrent-russ.ngrok-free.dev"
   ],
   "img": [
     "https://firebasestorage.googleapis.com",
