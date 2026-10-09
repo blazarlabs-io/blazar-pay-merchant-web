@@ -176,7 +176,8 @@ export const WalletProvider = ({
   };
 
   // * UPDATE SET ACCOUNTS
-  // Only L2 funds are payable (`payableInL2`, base-unit strings); L1 is shown apart and never added to it.
+  // The merchant's L2 balance is what it received in the head (`totalInL2`); `payableInL2` covers only
+  // user funds, so it is always empty for a merchant. L1 is shown apart and never added to it.
   const updateSetAccounts = useCallback(
     async (tmp: any): Promise<void> => {
       if (!tmp || typeof tmp !== "object") {
@@ -184,7 +185,7 @@ export const WalletProvider = ({
         return;
       }
       const totalInL1: Record<string, number> = tmp.totalInL1 || {};
-      const payableInL2: Record<string, string> = tmp.payableInL2 || {};
+      const totalInL2: Record<string, number | string> = tmp.totalInL2 || {};
 
       try {
         // USD values are display-only, so floats are fine from here on.
@@ -202,8 +203,8 @@ export const WalletProvider = ({
         };
         let totalUsd = 0;
         const perAsset: Wallet[] = availableAssets.flatMap((a) => {
-          const payable = formatBaseUnits(
-            payableInL2[a.assetUnit] ?? "0",
+          const l2 = formatBaseUnits(
+            String(totalInL2[a.assetUnit] ?? 0),
             a.decimals,
           );
           const l1 = formatBaseUnits(
@@ -211,14 +212,14 @@ export const WalletProvider = ({
             a.decimals,
           );
           const rate = usdRate[a.name] ?? 0;
-          totalUsd += Number(payable) * rate;
+          totalUsd += Number(l2) * rate;
           return [
             {
               ...base,
               balance: {
-                amount: payable,
-                currency: `${a.symbol} payable`,
-                asUsd: (Number(payable) * rate).toFixed(2),
+                amount: l2,
+                currency: `${a.symbol} L2`,
+                asUsd: (Number(l2) * rate).toFixed(2),
               },
             },
             {
