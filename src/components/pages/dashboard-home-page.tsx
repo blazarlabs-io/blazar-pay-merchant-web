@@ -17,6 +17,10 @@ import { SendPayment } from "../widgets/send-payment";
 import { Button } from "@repo/ui/components/ui/button";
 import { db } from "~/src/lib/firebase/services/db";
 
+// Hidden for the M3 demo: send-payment still uses float amounts and adds a hidden 3 ADA.
+// Port it to the payment contract (src/types/payment-contract.ts) before re-enabling.
+const SHOW_SEND_PAYMENT = false;
+
 export const DashboardHomePage = () => {
   const { user } = useAuth();
   const router = useRouter();
@@ -86,24 +90,26 @@ export const DashboardHomePage = () => {
           </div>
         </Card>
         {/* * SEND PAYMENT */}
-        <Card className="rounded-[96px] shadow-none w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
-          <CardHeader className="flex flex-row items-center justify-start gap-4">
-            <div className="flex items-center justify-center p-2 bg-white rounded-full">
-              <Receive className="w-10 h-10 text-muted-foreground" />
+        {SHOW_SEND_PAYMENT && (
+          <Card className="rounded-[96px] shadow-none w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
+            <CardHeader className="flex flex-row items-center justify-start gap-4">
+              <div className="flex items-center justify-center p-2 bg-white rounded-full">
+                <Receive className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-white">Send payment</CardTitle>
+                <p className="text-sm text-white/60">
+                  Send a payment to any user in your wallet.
+                </p>
+              </div>
+            </CardHeader>
+            <div className="flex flex-row items-center pr-6">
+              <div className="flex items-center min-h-full">
+                <SendPayment>Send</SendPayment>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-white">Send payment</CardTitle>
-              <p className="text-sm text-white/60">
-                Send a payment to any user in your wallet.
-              </p>
-            </div>
-          </CardHeader>
-          <div className="flex flex-row items-center pr-6">
-            <div className="flex items-center min-h-full">
-              <SendPayment>Send</SendPayment>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        )}
         {/* * RECEIVE PAYMENT */}
         <Card className="rounded-[96px] shadow-none w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
           <CardHeader className="flex flex-row items-center justify-start gap-4">
