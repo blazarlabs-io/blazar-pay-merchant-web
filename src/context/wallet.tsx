@@ -56,7 +56,6 @@ export interface WalletContextInterface {
   onConfirmation: (txHash: string) => void;
   refreshBalances: () => Promise<void>;
   contacts: any;
-  maxToSpend: number;
   availableAssets: Asset[];
   updateAvailableAssets: (assets: Asset[]) => void;
 }
@@ -82,7 +81,6 @@ const contextInitialData: WalletContextInterface = {
   onConfirmation: () => {},
   refreshBalances: async () => {},
   contacts: null,
-  maxToSpend: 0,
   availableAssets: [],
   updateAvailableAssets: () => {},
 };
@@ -109,7 +107,6 @@ export const WalletProvider = ({
   const [browserWallets, setBrowserWallets] = useState<any>(null);
   const [contacts, setContacts] = useState<any>(null);
   const [current, setCurrent] = useState<any>(null);
-  const [maxToSpend, setMaxToSpend] = useState<number>(0);
   const [terminalConnected, setTerminalConnected] = useState<boolean>(false);
   const [availableAssets, setAvailableAssets] = useState<Asset[]>([
     {
@@ -273,11 +270,9 @@ export const WalletProvider = ({
 
     const tmp = await balanceRes.json();
     await updateSetAccounts(tmp);
-    // Cashout withdraws L1 funds, so its maximum is the L1 lovelace.
-    setMaxToSpend(() => Number(tmp.totalInL1?.lovelace ?? 0));
   }, [address, updateSetAccounts]);
 
-  // * L1 TX CONFIRMED (topup, cashout), THEN REFRESH
+  // * L1 TX CONFIRMED (topup), THEN REFRESH
   const onConfirmation = useCallback(
     (txHash: string) => {
       setIsConfirming(() => true);
@@ -390,7 +385,6 @@ export const WalletProvider = ({
 
             const tmp = await balanceRes.json();
             const txs1 = tmp.fundsInL1 || [];
-            const balanceL1 = tmp.totalInL1 || {};
 
             console.log(
               "\n\n",
@@ -399,8 +393,6 @@ export const WalletProvider = ({
               tmp.fundsInL2,
               "\n\n",
             );
-
-            setMaxToSpend(() => Number(balanceL1.lovelace ?? 0));
 
             const _wallet: Wallet = res.data.wallet;
             _wallet.transactions = txs1;
@@ -636,7 +628,6 @@ export const WalletProvider = ({
     onConfirmation,
     refreshBalances,
     contacts,
-    maxToSpend,
     terminalConnected,
     updateTerminalConnected,
     availableAssets,

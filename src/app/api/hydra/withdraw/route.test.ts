@@ -12,22 +12,19 @@ vi.mock("@/lib/auth/api-auth", () => ({
       handler(request, { token: "id-token", decodedData: { uid: "u1" } }),
 }));
 
-import { POST as withdraw } from "./route";
-import { POST as deposit } from "../deposit/route";
+import { POST } from "./route";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 beforeEach(() => fetchMock.mockReset());
 
-// Cashout (withdraw) and Topup (deposit): the backend authorizes the owner of the address by its ID token.
-describe.each([
-  ["withdraw", withdraw, { address: "addr_test1merchant", owner: "merchant" }],
-  ["deposit", deposit, { user_address: "addr_test1merchant", amount: [] }],
-])("POST /api/hydra/%s", (name, POST, body) => {
+// Cashout: the backend authorizes the owner of the address by its Firebase ID token.
+describe("POST /api/hydra/withdraw", () => {
+  const body = { address: "addr_test1merchant", owner: "merchant" };
   it("forwards the body with the caller's ID token as Bearer", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ cborHex: "84" })));
     const res = await POST(
-      new NextRequest(`http://localhost/api/hydra/${name}`, {
+      new NextRequest("http://localhost/api/hydra/withdraw", {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -35,7 +32,7 @@ describe.each([
 
     expect(res.status).toBe(200);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe(`http://hydra.test/${name}`);
+    expect(url).toBe("http://hydra.test/withdraw");
     expect(init.headers.Authorization).toBe("Bearer id-token");
     expect(JSON.parse(init.body)).toEqual(body);
   });

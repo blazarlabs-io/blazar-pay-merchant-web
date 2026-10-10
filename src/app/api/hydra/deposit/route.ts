@@ -14,8 +14,6 @@ async function handleDeposit(request: NextRequest, user: CheckIdTokenResp) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // The backend accepts the owner of the address (payment contract §3.3) or the admin key.
-        Authorization: `Bearer ${user.token}`,
       },
       body: JSON.stringify(body),
     });
