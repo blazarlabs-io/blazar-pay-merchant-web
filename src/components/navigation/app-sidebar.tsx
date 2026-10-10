@@ -37,7 +37,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@repo/ui/components/ui/sidebar";
-import { ChevronRight, History, Home, LogOut, Settings2 } from "lucide-react";
+import { ChevronRight, Home, LogOut, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -60,13 +60,15 @@ const dataTemplate = {
       items: null,
       isActive: true,
     },
-    {
-      title: "History",
-      url: "/dashboard/history",
-      icon: History,
-      items: null,
-      isActive: false,
-    },
+    // Hidden for the M3 demo: History lists the legacy Firestore `transactions` collection, which the
+    // M3 payment flow does not write, so it is always empty. The backend has no payment-history route.
+    // {
+    //   title: "History",
+    //   url: "/dashboard/history",
+    //   icon: History,
+    //   items: null,
+    //   isActive: false,
+    // },
     {
       title: "Settings",
       url: "/dashboard/settings",

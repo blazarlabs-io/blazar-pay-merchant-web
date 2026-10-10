@@ -22,6 +22,10 @@ import { db } from "~/src/lib/firebase/services/db";
 const SHOW_SEND_PAYMENT = false;
 // Hidden for the M3 demo: the backend's /deposit is admin-only (the admin wallet funds the top-up).
 const SHOW_TOPUP = false;
+// Hidden for the M3 demo: the table listed fundsInL1 (validator UTxOs on L1), not payments, so it stayed
+// empty after confirmed payments. The backend has no payment-history route; the Receive sheet shows
+// each payment's confirmed record.
+const SHOW_RECENT_TRANSACTIONS = false;
 
 export const DashboardHomePage = () => {
   const { user } = useAuth();
@@ -135,7 +139,7 @@ export const DashboardHomePage = () => {
         </Card>
       </div>
       {/* * RECENT TRANSACTIONS */}
-      <RecentTransactionsSection />
+      {SHOW_RECENT_TRANSACTIONS && <RecentTransactionsSection />}
     </div>
   );
 };
