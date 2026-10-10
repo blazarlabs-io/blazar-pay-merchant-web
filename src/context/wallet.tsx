@@ -22,7 +22,7 @@ import { parse } from "path";
 import { useAuth } from "@/features/authentication/context/auth-provider";
 import { collection, doc, onSnapshot, Timestamp } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { getAdaToUsd, getWbtcToUsd } from "../lib/coinwatch";
+import { getAdaToUsd } from "../lib/coinwatch";
 import { blockfrost } from "../lib/blockfrost/client";
 import {
   TRIGGERS,
@@ -129,7 +129,7 @@ export const WalletProvider = ({
     },
     {
       name: "wbtc",
-      symbol: "WBTC",
+      symbol: ASSETS[BTC_UNIT].symbol,
       decimals: ASSETS[BTC_UNIT].decimals,
       amount: 0,
       icon: "/images/wbtc-token.png",
@@ -185,12 +185,18 @@ export const WalletProvider = ({
       const totalInL2: Record<string, number | string> = tmp.totalInL2 || {};
 
       try {
-        // USD values are display-only, so floats are fine from here on.
-        const usdRate: Record<string, number> = {
-          ada: await getAdaToUsd(),
+        // USD values are display-only, so floats are fine from here on. Without a price (no key, feed
+        // down) the value is unknown and shown as "—", never as $0.00.
+        const prices = await fetch("/api/coin-prices")
+          .then((r) => r.json())
+          .catch(() => ({}));
+        const usdRate: Record<string, number | undefined> = {
+          ada: prices.ada,
           usdm: 1,
-          wbtc: await getWbtcToUsd(),
+          wbtc: prices.wbtc,
         };
+        const asUsd = (amount: string, rate?: number) =>
+          rate ? (Number(amount) * rate).toFixed(2) : "—";
         const base = {
           name: (wallet as any)._walletName,
           address: address,
@@ -198,7 +204,7 @@ export const WalletProvider = ({
             (w: any) => w.name === (wallet as any)._walletName,
           )?.icon,
         };
-        let totalUsd = 0;
+        let totalUsd: number | null = 0;
         const perAsset: Wallet[] = availableAssets.flatMap((a) => {
           const l2 = formatBaseUnits(
             String(totalInL2[a.assetUnit] ?? 0),
@@ -208,23 +214,25 @@ export const WalletProvider = ({
             String(totalInL1[a.assetUnit] ?? 0),
             a.decimals,
           );
-          const rate = usdRate[a.name] ?? 0;
-          totalUsd += Number(l2) * rate;
+          const rate = usdRate[a.name];
+          if (Number(l2) > 0)
+            totalUsd = rate && totalUsd !== null ? totalUsd + Number(l2) * rate : null;
           return [
             {
               ...base,
               balance: {
                 amount: l2,
                 currency: `${a.symbol} L2`,
-                asUsd: (Number(l2) * rate).toFixed(2),
+                asUsd: asUsd(l2, rate),
               },
             },
             {
               ...base,
               balance: {
                 amount: l1,
-                currency: `${a.symbol} L1`,
-                asUsd: (Number(l1) * rate).toFixed(2),
+                // Funds at the validator on L1, not yet committed to the head; not the wallet balance.
+                currency: `${a.symbol} L1 deposit`,
+                asUsd: asUsd(l1, rate),
               },
             },
           ];
@@ -232,7 +240,11 @@ export const WalletProvider = ({
         setAccounts([
           {
             ...base,
-            balance: { amount: totalUsd, currency: "USD", asUsd: totalUsd },
+            balance: {
+              amount: totalUsd ?? "—",
+              currency: "USD",
+              asUsd: totalUsd ?? "—",
+            },
           },
           ...perAsset,
         ]);
@@ -400,6 +412,7 @@ export const WalletProvider = ({
             setCurrent((w: Wallet) => {
               return { ...w, ..._wallet };
             });
+            await updateSetAccounts(tmp);
           } else {
             // * If user does not exist, create user in DB.
             console.log("user does not exist", wallet);
