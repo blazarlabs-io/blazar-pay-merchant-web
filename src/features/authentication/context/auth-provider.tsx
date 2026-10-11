@@ -1,7 +1,7 @@
 "use client";
 
 import { auth } from "@/lib/firebase/client";
-import { User, onAuthStateChanged, signOut } from "firebase/auth";
+import { User, onIdTokenChanged, signOut } from "firebase/auth";
 import { deleteCookie, setCookie } from "cookies-next";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -70,13 +70,15 @@ export const AuthProvider = ({
     setUser(null);
     signOut(auth);
     await deleteCookie(AUTH_COOKIE);
+    await fetch("/api/auth/set-cookie", { method: "DELETE" }).catch(() => {});
     router.replace("/home");
   };
 
   useEffect(() => {
-    console.log("[AUTH_PROVIDER] Setting up onAuthStateChanged listener");
+    // onIdTokenChanged also fires on the hourly token refresh, so the cookie never keeps an expired token.
+    console.log("[AUTH_PROVIDER] Setting up onIdTokenChanged listener");
     let isProcessing = false;
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       if (isProcessing) {
         console.log(
           "[AUTH_PROVIDER] Already processing auth state change, skipping",
@@ -122,6 +124,7 @@ export const AuthProvider = ({
         setUser(null);
         setCookieSet(false);
         deleteCookie(AUTH_COOKIE);
+        fetch("/api/auth/set-cookie", { method: "DELETE" }).catch(() => {});
       }
       setLoading(false);
       isProcessing = false;
