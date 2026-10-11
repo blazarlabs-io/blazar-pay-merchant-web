@@ -13,7 +13,7 @@ The merchant web is the merchant side of the M3 demo. It works only on **Cardano
 4. The terminal picks the request up (`GET /terminal/pending-payment`), the payer's phone gets it by tapping the terminal's NFC tag (`GET /terminals/:id/pending-payment`) or over BLE, and authorizes it.
 5. The widget polls `GET /api/hydra/payments/<paymentId>` every 1 s until `confirmed`, `failed` or `expired`, and shows the amount, state, Hydra tx id, snapshot number and error. Success is shown only for `confirmed`, which the backend sets only after the Hydra snapshot containing the transaction is confirmed. On `confirmed` the balances refresh. "New request" starts over.
 
-The first payment to a merchant in a Hydra head must be at least 2 ADA (one-time bootstrap); before it, other payments fail with `MERCHANT_NOT_BOOTSTRAPPED`. "Send payment" is hidden in this version.
+The first payment to a merchant in a Hydra head must be at least 2 ADA (one-time bootstrap); before it, other payments fail with `MERCHANT_NOT_BOOTSTRAPPED`.
 
 ### Server proxy `/api/hydra/payments`
 | Route | Backend call | Checks |
@@ -52,14 +52,7 @@ If `pnpm install` stops on ignored build scripts and edits `pnpm-workspace.yaml`
 Tests: `pnpm test:run` (vitest; 103 tests, including base-unit conversion, proxy validation with a mocked backend and the 1 s polling). Type check: `pnpm type-check`.
 
 ### Verified on preprod
-The backend flow used by this dashboard was run live on 9 to 10 October 2026: a 2 ADA bootstrap, a 5 ADA payment and a 0.0001 BTC payment, each confirmed in a Hydra snapshot, with the payer and the merchant reading the same `confirmed` record (ids in `doc/m3-payments-and-btc.md` of `blazar-hydra`). That run showed that `payableInL2` is always empty for a merchant, which is why the L2 row now shows `totalInL2`. Screenshots of this dashboard during a live payment are still to be taken.
-
-### Known limitations
-- Testnet/preprod only; custodial demo backend. One merchant, one terminal.
-- The deployed Hydra validator does not enforce the payer's signature; the payer's consent is the authenticated `authorize` call from the phone.
-- Contactless transport: a static NFC tag on the terminal (`myapp://home/nfc?terminal=<id>`), with BLE as the alternative. NFC on iPhone needs a paid Apple developer team.
-- No BTC cash-out.
-- The terminal status indicator in the sidebar is not driven by the M3 flow and stays "disconnected".
+The backend flow used by this dashboard was run live on 9 to 10 October 2026: a 2 ADA bootstrap, a 5 ADA payment and a 0.0001 BTC payment, each confirmed in a Hydra snapshot, with the payer and the merchant reading the same `confirmed` record (ids in `doc/m3-payments-and-btc.md` of `blazar-hydra`). That run showed that `payableInL2` is always empty for a merchant, which is why the L2 row now shows `totalInL2`.
 
 ## Getting Started
 
