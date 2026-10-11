@@ -1,102 +1,100 @@
 "use client";
 
 import { Button } from "@repo/ui/components/ui/button";
-import { Input } from "@repo/ui/components/ui/input";
-import { Label } from "@repo/ui/components/ui/label";
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@repo/ui/components/ui/sheet";
 import { LoaderCircle } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ReceivePaymentAnim from "../anims/receive-payment-anim";
-import { socket } from "~/src/socket";
 import { useWallet } from "@/context/wallet";
 import { cn } from "@repo/ui/lib/utils";
-import { Wallet } from "~/src/types/db";
+import {
+  ASSETS,
+  AssetUnit,
+  Payment,
+  TERMINAL_STATES,
+  formatBaseUnits,
+  toBaseUnits,
+} from "@/types/payment-contract";
+import { pollPayment } from "@/lib/hydra/poll-payment";
 
 type ReceivePaymentProps = {
   children: React.ReactNode;
 };
 
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 export const ReceivePayment = ({ children }: ReceivePaymentProps) => {
-  const {
-    updateTerminalConnected,
-    updateAvailableAssets,
-    updateAccounts,
-    accounts,
-    onConfirmation,
-  } = useWallet();
-  const { availableAssets } = useWallet();
-  const [value, setValue] = useState<number>(0);
-  const [awaiting, setAwaiting] = useState<boolean>(false);
-  const [transport, setTransport] = useState<string>("N/A");
+  const { availableAssets, updateAvailableAssets, refreshBalances } =
+    useWallet();
+  const [value, setValue] = useState<string>("");
+  const [requesting, setRequesting] = useState<boolean>(false);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  const paymentId = payment?.paymentId;
+  const isFinal = payment ? TERMINAL_STATES.includes(payment.state) : false;
+
+  // The backend record is the only source of truth: poll it until it is final.
   useEffect(() => {
-    if (socket.connected) {
-      onConnect();
+    if (!paymentId) return;
+    const controller = new AbortController();
+    pollPayment(paymentId, {
+      signal: controller.signal,
+      onUpdate: (p) => {
+        setPayment(p);
+        setError(null);
+      },
+      onError: (e) => setError(errorMessage(e)),
+    }).then((final) => {
+      if (final?.state === "confirmed") refreshBalances();
+    });
+    return () => controller.abort();
+  }, [paymentId]);
+
+  const handleRequestFunds = async () => {
+    setError(null);
+    const assetUnit = availableAssets.find((a) => a.selected)
+      ?.assetUnit as AssetUnit;
+    // No connected wallet: the backend uses the merchant account's address.
+    const merchantAddress = localStorage.getItem("wallet") || undefined;
+
+    let amountBaseUnits: string;
+    try {
+      amountBaseUnits = toBaseUnits(value, ASSETS[assetUnit].decimals);
+    } catch (e) {
+      setError(errorMessage(e));
+      return;
     }
 
-    function onConnect() {
-      // setIsConnected(true);
-      updateTerminalConnected(true);
-      setTransport(socket.io.engine.transport.name);
-
-      socket.io.engine.on("upgrade", (transport) => {
-        setTransport(transport.name);
+    setRequesting(true);
+    try {
+      const res = await fetch("/api/hydra/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ merchantAddress, assetUnit, amountBaseUnits }),
       });
+      if (!res.ok) throw new Error(`Payment request failed (${res.status})`);
+      setPayment(await res.json());
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setRequesting(false);
     }
+  };
 
-    function onDisconnect() {
-      updateTerminalConnected(false);
-      setTransport("N/A");
-    }
-
-    socket.on("connect", onConnect);
-    socket.on("payed", (data) => {
-      console.log(data);
-      setTimeout(() => {
-        onConfirmation(data.fundsInL2.fundsUtxoRef.txHash);
-        setAwaiting(false);
-      }, 5000);
-      // accounts.map((account: Wallet) => {
-      //   if (account.address === data.address) {
-      //     account.balance = data.balance;
-      //   }
-      // });
-      // updateAccounts(accounts);
-    });
-    socket.on("disconnect", onDisconnect);
-
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-    };
-  }, []);
-
-  const handleRequestFunds = useCallback(() => {
-    setAwaiting(true);
-    socket.emit("requestFunds", {
-      address: localStorage.getItem("wallet") as string,
-      amount: value,
-      assetUnit: availableAssets.filter((a: any) => a.selected)[0]?.assetUnit,
-      decimals: availableAssets.filter((a: any) => a.selected)[0]?.decimals,
-    });
-  }, [value, availableAssets, socket]);
-
-  const handleValueChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(parseFloat(e.target.value));
-    },
-    [],
-  );
+  const handleNewRequest = () => {
+    setPayment(null);
+    setError(null);
+    setValue("");
+  };
 
   const handleAssetSelect = (asset: any) => {
     const newAssets = availableAssets.map((a: any) => {
@@ -106,7 +104,6 @@ export const ReceivePayment = ({ children }: ReceivePaymentProps) => {
         return { ...a, selected: false };
       }
     });
-    console.log(newAssets);
     updateAvailableAssets(newAssets);
   };
 
@@ -120,7 +117,7 @@ export const ReceivePayment = ({ children }: ReceivePaymentProps) => {
         className="flex flex-col items-center justify-center"
       >
         <SheetHeader className="flex flex-col items-center justify-center">
-          {!awaiting ? (
+          {!payment ? (
             <>
               <Image
                 src="/images/receive-payment.png"
@@ -164,21 +161,32 @@ export const ReceivePayment = ({ children }: ReceivePaymentProps) => {
             </>
           ) : (
             <>
-              <ReceivePaymentAnim />
-              <SheetTitle className="pt-[32px]">Awaiting payment</SheetTitle>
-              <SheetDescription>
-                Make sure the client's phone hovers over the hydrapay payment
-                terminal.
-              </SheetDescription>
+              {!isFinal && <ReceivePaymentAnim />}
+              <SheetTitle className="pt-[32px]">
+                {payment.state === "confirmed"
+                  ? "Payment confirmed"
+                  : payment.state === "failed"
+                    ? "Payment failed"
+                    : payment.state === "expired"
+                      ? "Payment request expired"
+                      : "Awaiting payment"}
+              </SheetTitle>
+              {!isFinal && (
+                <SheetDescription>
+                  Make sure the client's phone hovers over the hydrapay payment
+                  terminal.
+                </SheetDescription>
+              )}
             </>
           )}
         </SheetHeader>
-        {!awaiting ? (
+        {!payment ? (
           <>
             <div>
               <input
-                value={value || 0}
-                onChange={handleValueChange}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="0"
                 style={{
                   font: "inherit",
                   padding: 0,
@@ -188,27 +196,45 @@ export const ReceivePayment = ({ children }: ReceivePaymentProps) => {
                   fontSize: "3rem",
                   textAlign: "center",
                 }}
-                step="any"
-                min={"0.00000001"}
-                type="number"
+                inputMode="decimal"
+                type="text"
               />
             </div>
             <div>
-              <Button onClick={handleRequestFunds}>Request</Button>
+              <Button onClick={handleRequestFunds} disabled={requesting}>
+                Request
+              </Button>
             </div>
           </>
         ) : (
           <>
-            <div className="grid gap-4 py-4">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 py-4 text-sm max-w-full">
+              <dt className="text-muted-foreground">Amount</dt>
+              <dd>
+                {formatBaseUnits(payment.amountBaseUnits, payment.decimals)}{" "}
+                {ASSETS[payment.assetUnit].symbol}
+              </dd>
+              <dt className="text-muted-foreground">State</dt>
+              <dd>{payment.state}</dd>
+              <dt className="text-muted-foreground">Hydra tx</dt>
+              <dd className="break-all">{payment.hydraTxId ?? "-"}</dd>
+              <dt className="text-muted-foreground">Snapshot</dt>
+              <dd>{payment.snapshotNumber ?? "-"}</dd>
+              {payment.error && (
+                <>
+                  <dt className="text-muted-foreground">Error</dt>
+                  <dd className="text-destructive">{payment.error}</dd>
+                </>
+              )}
+            </dl>
+            {isFinal ? (
+              <Button onClick={handleNewRequest}>New request</Button>
+            ) : (
               <LoaderCircle className="animate-spin text-foreground" />
-            </div>
+            )}
           </>
         )}
-        <SheetFooter>
-          {/* <SheetClose asChild>
-            <Button type="submit">Save changes</Button>
-          </SheetClose> */}
-        </SheetFooter>
+        {error && <p className="text-sm text-destructive">{error}</p>}
       </SheetContent>
     </Sheet>
   );

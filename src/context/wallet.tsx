@@ -22,13 +22,18 @@ import { parse } from "path";
 import { useAuth } from "@/features/authentication/context/auth-provider";
 import { collection, doc, onSnapshot, Timestamp } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { getAdaToUsd, getWbtcToUsd } from "../lib/coinwatch";
+import { getAdaToUsd } from "../lib/coinwatch";
 import { blockfrost } from "../lib/blockfrost/client";
 import {
   TRIGGERS,
   PAY_TRIGGER,
   USERS,
 } from "../lib/firebase/services/constants";
+import { ASSETS, formatBaseUnits } from "@/types/payment-contract";
+
+const USDM_UNIT =
+  "e675b46e4d2242c991a8932a99db3044e80515ae14b4c4ccf6b3f4c90014df10745553444d";
+const BTC_UNIT = "d2a8592ec9673ac18fea1044885f94518e954ab0cb2b6bb0a328d2af425443";
 
 export interface WalletContextInterface {
   terminalConnected: boolean;
@@ -49,8 +54,8 @@ export interface WalletContextInterface {
   loading: boolean;
   isConfirming: boolean;
   onConfirmation: (txHash: string) => void;
+  refreshBalances: () => Promise<void>;
   contacts: any;
-  maxToSpend: number;
   availableAssets: Asset[];
   updateAvailableAssets: (assets: Asset[]) => void;
 }
@@ -74,8 +79,8 @@ const contextInitialData: WalletContextInterface = {
   loading: false,
   isConfirming: false,
   onConfirmation: () => {},
+  refreshBalances: async () => {},
   contacts: null,
-  maxToSpend: 0,
   availableAssets: [],
   updateAvailableAssets: () => {},
 };
@@ -102,13 +107,12 @@ export const WalletProvider = ({
   const [browserWallets, setBrowserWallets] = useState<any>(null);
   const [contacts, setContacts] = useState<any>(null);
   const [current, setCurrent] = useState<any>(null);
-  const [maxToSpend, setMaxToSpend] = useState<number>(0);
   const [terminalConnected, setTerminalConnected] = useState<boolean>(false);
   const [availableAssets, setAvailableAssets] = useState<Asset[]>([
     {
       name: "ada",
       symbol: "ADA",
-      decimals: 6,
+      decimals: ASSETS.lovelace.decimals,
       amount: 0,
       icon: "/images/ada-token.png",
       selected: true,
@@ -117,22 +121,20 @@ export const WalletProvider = ({
     {
       name: "usdm",
       symbol: "USDM",
-      decimals: 0,
+      decimals: ASSETS[USDM_UNIT].decimals,
       amount: 0,
       icon: "/images/usdm-token.png",
       selected: false,
-      assetUnit:
-        "77484e67c1ed6c96f55b89206cb5d6caae9a09a0bd473bba817929fe5553444d",
+      assetUnit: USDM_UNIT,
     },
     {
       name: "wbtc",
-      symbol: "WBTC",
-      decimals: 8,
+      symbol: ASSETS[BTC_UNIT].symbol,
+      decimals: ASSETS[BTC_UNIT].decimals,
       amount: 0,
       icon: "/images/wbtc-token.png",
       selected: false,
-      assetUnit:
-        "d2a8592ec9673ac18fea1044885f94518e954ab0cb2b6bb0a328d2af425443",
+      assetUnit: BTC_UNIT,
     },
   ]);
 
@@ -171,185 +173,124 @@ export const WalletProvider = ({
   };
 
   // * UPDATE SET ACCOUNTS
+  // The merchant's L2 balance is what it received in the head (`totalInL2`); `payableInL2` covers only
+  // user funds, so it is always empty for a merchant. L1 is shown apart and never added to it.
   const updateSetAccounts = useCallback(
-    async (tmp: any): Promise<any> => {
-      return new Promise(async (resolve, reject) => {
-        // Validate response structure
-        if (!tmp || typeof tmp !== "object") {
-          console.error(
-            "Invalid API response: expected object, got",
-            typeof tmp,
+    async (tmp: any): Promise<void> => {
+      if (!tmp || typeof tmp !== "object") {
+        console.error("Invalid API response: expected object, got", typeof tmp);
+        return;
+      }
+      const totalInL1: Record<string, number> = tmp.totalInL1 || {};
+      const totalInL2: Record<string, number | string> = tmp.totalInL2 || {};
+
+      try {
+        // USD values are display-only, so floats are fine from here on. Without a price (no key, feed
+        // down) the value is unknown and shown as "—", never as $0.00.
+        const prices = await fetch("/api/coin-prices")
+          .then((r) => r.json())
+          .catch(() => ({}));
+        const usdRate: Record<string, number | undefined> = {
+          ada: prices.ada,
+          usdm: 1,
+          wbtc: prices.wbtc,
+        };
+        const asUsd = (amount: string, rate?: number) =>
+          rate ? (Number(amount) * rate).toFixed(2) : "—";
+        const base = {
+          name: (wallet as any)._walletName,
+          address: address,
+          icon: browserWallets?.find(
+            (w: any) => w.name === (wallet as any)._walletName,
+          )?.icon,
+        };
+        let totalUsd: number | null = 0;
+        const perAsset: Wallet[] = availableAssets.flatMap((a) => {
+          const l2 = formatBaseUnits(
+            String(totalInL2[a.assetUnit] ?? 0),
+            a.decimals,
           );
-          resolve({ adaBalance: 0, usdmBalance: 0, wbtcBalance: 0 });
-          return;
-        }
-
-        // Ensure totalInL1 and totalInL2 exist, default to empty objects
-        const totalInL1 = tmp.totalInL1 || {};
-        const totalInL2 = tmp.totalInL2 || {};
-
-        // Get asset units with fallback
-        const adaAssetUnit =
-          availableAssets.find((a) => a.name === "ada")?.assetUnit ||
-          "lovelace";
-        const usdmAssetUnit =
-          availableAssets.find((a) => a.name === "usdm")?.assetUnit || "";
-        const wbtcAssetUnit =
-          availableAssets.find((a) => a.name === "wbtc")?.assetUnit || "";
-
-        // Safely extract balances with proper null/undefined handling
-        const adaBalanceL1 = totalInL1[adaAssetUnit] || 0;
-        const adaBalanceL2 = totalInL2[adaAssetUnit] || 0;
-        const usdmBalanceL1 = totalInL1[usdmAssetUnit] || 0;
-        const usdmBalanceL2 = totalInL2[usdmAssetUnit] || 0;
-        const wbtcBalanceL1 = totalInL1[wbtcAssetUnit] || 0;
-        const wbtcBalanceL2 = totalInL2[wbtcAssetUnit] || 0;
-
-        const adaBalance = (adaBalanceL1 || 0) + (adaBalanceL2 || 0);
-        const usdmBalance = (usdmBalanceL1 || 0) + (usdmBalanceL2 || 0);
-        const wbtcBalance = (wbtcBalanceL1 || 0) + (wbtcBalanceL2 || 0);
-
-        const fixedWbtcBalance = parseFloat(
-          (parseFloat(wbtcBalance) / 100000000).toFixed(8),
-        );
-
-        try {
-          const adaRate = await getAdaToUsd();
-          const wbtcRate = await getWbtcToUsd();
-          const usdFromAda = (adaBalance / 1000000) * adaRate;
-          const usdFromWbtc = fixedWbtcBalance * Number(wbtcRate.toFixed(2)); //Number(fixedWbtcBalance / 100000000) * Number(wbtcRate.toFixed(2));
-
-          const formattedUsdFromWbtc = usdFromWbtc.toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-            useGrouping: false,
-          });
-
-          console.info("\n\n\n=========================================");
-          console.info("ADA BALANCE L1", adaBalanceL1);
-          console.info("ADA BALANCE L2", adaBalanceL2);
-          console.info("USDM BALANCE L1", usdmBalanceL1);
-          console.info("USDM BALANCE L2", usdmBalanceL2);
-          console.info("WBTC BALANCE L1", wbtcBalanceL1);
-          console.info("WBTC BALANCE L2", wbtcBalanceL2);
-          console.info("ADA TOTAL BALANCE", adaBalance);
-          console.info("USDM TOTAL BALANCE", usdmBalance);
-          console.info("WBTC TOTAL BALANCE", wbtcBalance);
-          console.info("FIXED WBTC BALANCE", fixedWbtcBalance);
-          console.log("ADA RATE", adaRate);
-          console.log("WBTC RATE", Number(wbtcRate.toFixed(2)));
-          console.log("USD FROM ADA", usdFromAda);
-          console.log("USD FROM WBTC", usdFromWbtc);
-          console.log("USD FROM WBTC FORMATTED", formattedUsdFromWbtc);
-          console.info("=========================================\n\n\n");
-
-          const newAccounts: Wallet[] = [
+          const l1 = formatBaseUnits(
+            String(totalInL1[a.assetUnit] ?? 0),
+            a.decimals,
+          );
+          const rate = usdRate[a.name];
+          if (Number(l2) > 0)
+            totalUsd = rate && totalUsd !== null ? totalUsd + Number(l2) * rate : null;
+          return [
             {
-              name: (wallet as any)._walletName,
-              address: address,
+              ...base,
               balance: {
-                amount: (Number(adaBalance) / 1000000).toFixed(2),
-                currency: "ADA",
-                asUsd: usdFromAda.toFixed(2),
+                amount: l2,
+                currency: `${a.symbol} L2`,
+                asUsd: asUsd(l2, rate),
               },
-              icon: browserWallets?.find(
-                (w: any) => w.name === (wallet as any)._walletName,
-              )?.icon,
             },
             {
-              name: (wallet as any)._walletName,
-              address: address,
+              ...base,
               balance: {
-                amount: usdFromAda + usdFromWbtc + usdmBalance,
-                currency: "USD",
-                asUsd: usdFromAda + usdFromWbtc + usdmBalance,
+                amount: l1,
+                // Funds at the validator on L1, not yet committed to the head; not the wallet balance.
+                currency: `${a.symbol} L1 deposit`,
+                asUsd: asUsd(l1, rate),
               },
-              icon: browserWallets?.find(
-                (w: any) => w.name === (wallet as any)._walletName,
-              )?.icon,
-            },
-            {
-              name: (wallet as any)._walletName,
-              address: address,
-              balance: {
-                amount: Number(usdmBalance).toFixed(2),
-                currency: "USDM",
-                asUsd: Number(Number(usdmBalance).toFixed(2)),
-              },
-              icon: browserWallets?.find(
-                (w: any) => w.name === (wallet as any)._walletName,
-              )?.icon,
-            },
-            {
-              name: (wallet as any)._walletName,
-              address: address,
-              balance: {
-                amount: fixedWbtcBalance,
-                currency: "WBTC",
-                asUsd: formattedUsdFromWbtc,
-              },
-              icon: browserWallets?.find(
-                (w: any) => w.name === (wallet as any)._walletName,
-              )?.icon,
             },
           ];
-          setAccounts(() => newAccounts);
-          resolve({ adaBalance, usdmBalance, wbtcBalance });
-        } catch (error) {
-          console.error("Error updating accounts:", error);
-          // Return zero balances on error rather than null
-          resolve({ adaBalance: 0, usdmBalance: 0, wbtcBalance: 0 });
-        }
-      });
+        });
+        setAccounts([
+          {
+            ...base,
+            balance: {
+              amount: totalUsd ?? "—",
+              currency: "USD",
+              asUsd: totalUsd ?? "—",
+            },
+          },
+          ...perAsset,
+        ]);
+      } catch (error) {
+        console.error("Error updating accounts:", error);
+      }
     },
     [wallet, current, address, browserWallets, availableAssets],
   );
 
+  // * REFRESH BALANCES FROM HYDRA QUERY-FUNDS
+  const refreshBalances = useCallback(async () => {
+    const walletAddress = (localStorage.getItem("wallet") as string) || address;
+
+    // Validate address before making API call
+    if (!walletAddress || walletAddress.length < 10) {
+      console.error("Invalid wallet address for balance query");
+      return;
+    }
+
+    const balanceRes = await fetch(
+      `/api/hydra/query-funds?address=${walletAddress}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!balanceRes.ok) {
+      console.error("Balance query failed:", balanceRes.status);
+      return;
+    }
+
+    const tmp = await balanceRes.json();
+    await updateSetAccounts(tmp);
+  }, [address, updateSetAccounts]);
+
+  // * L1 TX CONFIRMED (topup), THEN REFRESH
   const onConfirmation = useCallback(
     (txHash: string) => {
       setIsConfirming(() => true);
       blockfrost.onTxConfirmed(txHash, async () => {
         try {
-          console.log(
-            "\n\n[TX-XONFIRMED]",
-            wallet,
-            localStorage.getItem("wallet") as string,
-            "\n\n",
-          );
-
-          const walletAddress =
-            (localStorage.getItem("wallet") as string) || address;
-
-          // Validate address before making API call
-          if (!walletAddress || walletAddress.length < 10) {
-            console.error("Invalid wallet address for balance query");
-            setIsConfirming(() => false);
-            return;
-          }
-
-          const balanceRes = await fetch(
-            `/api/hydra/query-funds?address=${walletAddress}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            },
-          );
-
-          if (!balanceRes.ok) {
-            console.error("Balance query failed:", balanceRes.status);
-            setIsConfirming(() => false);
-            return;
-          }
-
-          const tmp = await balanceRes.json();
-          const { adaBalance, usdmBalance, wbtcBalance } =
-            await updateSetAccounts(tmp);
-
-          setMaxToSpend(
-            () => (adaBalance || 0) + (usdmBalance || 0 + wbtcBalance || 0),
-          );
+          await refreshBalances();
         } catch (error) {
           console.error("Error in onConfirmation:", error);
         } finally {
@@ -357,7 +298,7 @@ export const WalletProvider = ({
         }
       });
     },
-    [address, updateSetAccounts, wallet],
+    [refreshBalances],
   );
 
   // * CONNECT
@@ -456,8 +397,6 @@ export const WalletProvider = ({
 
             const tmp = await balanceRes.json();
             const txs1 = tmp.fundsInL1 || [];
-            const balanceL1 = tmp.totalInL1 || {};
-            const balanceL2 = tmp.totalInL2 || {};
 
             console.log(
               "\n\n",
@@ -467,14 +406,13 @@ export const WalletProvider = ({
               "\n\n",
             );
 
-            setMaxToSpend(() => balanceL1 + balanceL2);
-
             const _wallet: Wallet = res.data.wallet;
             _wallet.transactions = txs1;
 
             setCurrent((w: Wallet) => {
               return { ...w, ..._wallet };
             });
+            await updateSetAccounts(tmp);
           } else {
             // * If user does not exist, create user in DB.
             console.log("user does not exist", wallet);
@@ -611,8 +549,7 @@ export const WalletProvider = ({
 
           setLoading(() => false);
           const tmp = await balanceRes.json();
-          const { adaBalance, usdmBalance, wbtcBalance } =
-            await updateSetAccounts(tmp);
+          await updateSetAccounts(tmp);
         })
         .catch((err) => {
           console.error("Error fetching balance:", err);
@@ -665,14 +602,9 @@ export const WalletProvider = ({
               }
 
               const tmp = await balanceRes.json();
-              const { adaBalance, usdmBalance, wbtcBalance } =
-                await updateSetAccounts(tmp);
+              await updateSetAccounts(tmp);
               await db.trigger.setCompletePayTrigger(user?.uid);
-              console.log(
-                "\n\n[BALANCE UPDATED]",
-                adaBalance + usdmBalance + wbtcBalance,
-                "\n\n",
-              );
+              console.log("\n\n[BALANCE UPDATED]\n\n");
             } catch (error) {
               console.error("Failed to fetch balance:", error);
               console.error("API URL:", fullUrl);
@@ -707,8 +639,8 @@ export const WalletProvider = ({
     loading,
     isConfirming,
     onConfirmation,
+    refreshBalances,
     contacts,
-    maxToSpend,
     terminalConnected,
     updateTerminalConnected,
     availableAssets,

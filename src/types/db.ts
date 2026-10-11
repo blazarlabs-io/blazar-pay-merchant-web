@@ -177,7 +177,7 @@ export interface Sweetness {
 }
 
 export type Balance = {
-  amount: number;
+  amount: number | string;
   currency: string;
   asUsd: number | string;
 };

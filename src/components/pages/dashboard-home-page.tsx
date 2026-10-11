@@ -17,6 +17,16 @@ import { SendPayment } from "../widgets/send-payment";
 import { Button } from "@repo/ui/components/ui/button";
 import { db } from "~/src/lib/firebase/services/db";
 
+// Hidden for the M3 demo: send-payment still uses float amounts and adds a hidden 3 ADA.
+// Port it to the payment contract (src/types/payment-contract.ts) before re-enabling.
+const SHOW_SEND_PAYMENT = false;
+// Hidden for the M3 demo: the backend's /deposit is admin-only (the admin wallet funds the top-up).
+const SHOW_TOPUP = false;
+// Hidden for the M3 demo: the table listed fundsInL1 (validator UTxOs on L1), not payments, so it stayed
+// empty after confirmed payments. The backend has no payment-history route; the Receive sheet shows
+// each payment's confirmed record.
+const SHOW_RECENT_TRANSACTIONS = false;
+
 export const DashboardHomePage = () => {
   const { user } = useAuth();
   const router = useRouter();
@@ -48,24 +58,26 @@ export const DashboardHomePage = () => {
       {/* * ACTIONS */}
       <div className="grid justify-between w-full gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {/* * TOPUP */}
-        <Card className="shadow-none rounded-[96px] w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
-          <CardHeader className="flex flex-row items-center justify-start gap-4">
-            <div className="flex items-center justify-center p-2 bg-white rounded-full">
-              <CashOutIcon className="w-10 h-10 text-muted-foreground" />
+        {SHOW_TOPUP && (
+          <Card className="shadow-none rounded-[96px] w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
+            <CardHeader className="flex flex-row items-center justify-start gap-4">
+              <div className="flex items-center justify-center p-2 bg-white rounded-full">
+                <CashOutIcon className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-white">Topup</CardTitle>
+                <p className="text-sm text-white/60">
+                  Topup your balance using your favourite payment method.
+                </p>
+              </div>
+            </CardHeader>
+            <div className="flex flex-row items-center pr-6">
+              <div className="flex items-center min-h-full">
+                <Topup>Topup</Topup>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-white">Topup</CardTitle>
-              <p className="text-sm text-white/60">
-                Topup your balance using your favourite payment method.
-              </p>
-            </div>
-          </CardHeader>
-          <div className="flex flex-row items-center pr-6">
-            <div className="flex items-center min-h-full">
-              <Topup>Topup</Topup>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        )}
         {/* * CASHOUT */}
         <Card className="shadow-none rounded-[96px] w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
           <CardHeader className="flex flex-row items-center justify-start gap-4">
@@ -75,7 +87,7 @@ export const DashboardHomePage = () => {
             <div className="flex flex-col gap-1">
               <CardTitle className="text-white">Cashout</CardTitle>
               <p className="text-sm text-white/60">
-                Cashout your balance to your bank account.
+                Withdraw your L2 funds to your Cardano address.
               </p>
             </div>
           </CardHeader>
@@ -86,24 +98,26 @@ export const DashboardHomePage = () => {
           </div>
         </Card>
         {/* * SEND PAYMENT */}
-        <Card className="rounded-[96px] shadow-none w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
-          <CardHeader className="flex flex-row items-center justify-start gap-4">
-            <div className="flex items-center justify-center p-2 bg-white rounded-full">
-              <Receive className="w-10 h-10 text-muted-foreground" />
+        {SHOW_SEND_PAYMENT && (
+          <Card className="rounded-[96px] shadow-none w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
+            <CardHeader className="flex flex-row items-center justify-start gap-4">
+              <div className="flex items-center justify-center p-2 bg-white rounded-full">
+                <Receive className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-white">Send payment</CardTitle>
+                <p className="text-sm text-white/60">
+                  Send a payment to any user in your wallet.
+                </p>
+              </div>
+            </CardHeader>
+            <div className="flex flex-row items-center pr-6">
+              <div className="flex items-center min-h-full">
+                <SendPayment>Send</SendPayment>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-white">Send payment</CardTitle>
-              <p className="text-sm text-white/60">
-                Send a payment to any user in your wallet.
-              </p>
-            </div>
-          </CardHeader>
-          <div className="flex flex-row items-center pr-6">
-            <div className="flex items-center min-h-full">
-              <SendPayment>Send</SendPayment>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        )}
         {/* * RECEIVE PAYMENT */}
         <Card className="rounded-[96px] shadow-none w-full bg-[#222128] border-input flex items-center justify-between min-h-[124px]">
           <CardHeader className="flex flex-row items-center justify-start gap-4">
@@ -125,7 +139,7 @@ export const DashboardHomePage = () => {
         </Card>
       </div>
       {/* * RECENT TRANSACTIONS */}
-      <RecentTransactionsSection />
+      {SHOW_RECENT_TRANSACTIONS && <RecentTransactionsSection />}
     </div>
   );
 };

@@ -14,6 +14,8 @@ async function handleWithdraw(request: NextRequest, user: CheckIdTokenResp) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // The backend accepts the owner of the address (Firebase ID token) or the admin key.
+        Authorization: `Bearer ${user.token}`,
       },
       body: JSON.stringify(body),
     });

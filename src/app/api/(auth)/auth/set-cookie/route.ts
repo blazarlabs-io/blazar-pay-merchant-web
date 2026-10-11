@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseBearerToken } from "@/lib/validation/http";
 import { secureLogError } from "@/lib/logging";
 import { toPublicError, CommonErrors } from "@/lib/errors";
+import { AUTH_COOKIE } from "@/features/authentication/data";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +18,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set the auth cookie with secure flags
+    // Set the auth cookie with secure flags. The middleware and the API proxies read AUTH_COOKIE.
     const response = NextResponse.json({ success: true });
-    response.cookies.set("auth", token, {
+    response.cookies.set(AUTH_COOKIE, token, {
       path: "/",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -42,4 +43,11 @@ export async function POST(request: NextRequest) {
       { status: publicError.status },
     );
   }
+}
+
+// The cookie is httpOnly, so the client cannot delete it on sign-out.
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.delete(AUTH_COOKIE);
+  return response;
 }
