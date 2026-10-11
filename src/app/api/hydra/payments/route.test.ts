@@ -65,7 +65,8 @@ describe("POST /api/hydra/payments", () => {
     ["a zero amount", { ...create, amountBaseUnits: "0" }],
     ["an unknown asset", { ...create, assetUnit: "usd" }],
     ["an extra field", { ...create, decimals: 6 }],
-    ["a missing merchant", { ...create, merchantAddress: undefined }],
+    ["an empty merchant", { ...create, merchantAddress: "" }],
+    ["a null merchant", { ...create, merchantAddress: null }],
   ])("rejects %s without calling the backend", async (_name, body) => {
     const res = await post(JSON.stringify(body));
     expect(res.status).toBe(400);
@@ -88,6 +89,15 @@ describe("POST /api/hydra/payments", () => {
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer id-token");
     expect(JSON.parse(init.body)).toEqual(create);
+  });
+
+  it("forwards a request without merchantAddress (no connected wallet)", async () => {
+    fetchMock.mockResolvedValue(json(payment, 201));
+    const { assetUnit, amountBaseUnits } = create;
+    const res = await post(JSON.stringify({ assetUnit, amountBaseUnits }));
+
+    expect(res.status).toBe(201);
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({ assetUnit, amountBaseUnits });
   });
 
   it("keeps the backend error status", async () => {

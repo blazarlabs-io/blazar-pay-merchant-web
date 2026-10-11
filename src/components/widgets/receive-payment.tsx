@@ -63,11 +63,8 @@ export const ReceivePayment = ({ children }: ReceivePaymentProps) => {
     setError(null);
     const assetUnit = availableAssets.find((a) => a.selected)
       ?.assetUnit as AssetUnit;
-    const merchantAddress = localStorage.getItem("wallet");
-    if (!merchantAddress) {
-      setError("Connect your wallet first");
-      return;
-    }
+    // No connected wallet: the backend uses the merchant account's address.
+    const merchantAddress = localStorage.getItem("wallet") || undefined;
 
     let amountBaseUnits: string;
     try {
